@@ -12,8 +12,31 @@ class ApiApp extends StatelessWidget {
       theme: ThemeData(
         primarySwatch: Colors.blue,
       ),
-      home: ApiHomePage(title: 'TRABALHO API RESTFULL FLUTTER'),
+      home: ApiHomePage(title: 'TRABALHO API RESTFUL FLUTTER'),
     );
+  }
+}
+
+class Cliente {
+  final int id;
+  final String nome;
+  final String categoria;
+
+  Cliente({required this.id, required this.nome, required this.categoria});
+
+  factory Cliente.fromJson(Map<String, dynamic> json) {
+    return Cliente(
+      id: int.parse(json['id'].toString()),
+      nome: json['nome'],
+      categoria: json['categoria'],
+    );
+  }
+
+  Map<String, dynamic> toJson() {
+    return {
+      'nome': nome,
+      'categoria': categoria,
+    };
   }
 }
 
@@ -27,147 +50,162 @@ class ApiHomePage extends StatefulWidget {
 }
 
 class _ApiHomePageState extends State<ApiHomePage> {
-  final TextEditingController _idController = TextEditingController(text: '0');
+  final TextEditingController _idController = TextEditingController();
   final TextEditingController _nomeController = TextEditingController();
   final TextEditingController _categoriaController = TextEditingController();
 
-  List<dynamic> _data = [];
+  List<Cliente> _clientes = [];
+
+  final String _baseUrl = 'http://10.0.2.2/api/testeApi.php/cliente';
 
   @override
   void initState() {
     super.initState();
-    _get();
+    _getClientes();
   }
 
-  Future<void> _get() async {
-    final url = Uri.parse('http://10.0.2.2/api/testeApi.php/cliente/list');
+  Future<void> _getClientes() async {
+    final url = Uri.parse('$_baseUrl/list');
     try {
       final response = await http.get(url);
-      final data = jsonDecode(response.body);
-      setState(() {
-        _data = data;
-      });
+      if (response.statusCode == 200) {
+        final List<dynamic> data = jsonDecode(response.body);
+        setState(() {
+          _clientes = data.map((item) => Cliente.fromJson(item)).toList();
+        });
+      } else {
+        _showMessage('Erro ao obter dados: ${response.statusCode}');
+      }
     } catch (error) {
-      print('Erro ao executar solicitação GET: $error');
+      _showMessage('Erro ao executar solicitação GET: $error');
     }
   }
 
-  Future<void> _post() async {
-    final url = Uri.parse('http://10.0.2.2/api/testeApi.php/cliente');
+  Future<void> _createCliente() async {
+    final url = Uri.parse(_baseUrl);
     try {
+      final cliente = Cliente(
+        id: 0,
+        nome: _nomeController.text,
+        categoria: _categoriaController.text,
+      );
       final response = await http.post(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          'nome': _nomeController.text,
-          'categoria': _categoriaController.text,
-        }),
+        body: jsonEncode(cliente.toJson()),
       );
       final data = jsonDecode(response.body);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(data['message']),
-      ));
-      _get();
+      _showMessage(data['message']);
+      _getClientes();
     } catch (error) {
-      print('Erro ao executar solicitação POST: $error');
+      _showMessage('Erro ao executar solicitação POST: $error');
     }
   }
 
-  Future<void> _put() async {
-    final url = Uri.parse(
-        'http://10.0.2.2/api/testeApi.php/cliente/${_idController.text}');
+  Future<void> _updateCliente() async {
+    final url = Uri.parse('$_baseUrl/${_idController.text}');
     try {
+      final cliente = Cliente(
+        id: int.parse(_idController.text),
+        nome: _nomeController.text,
+        categoria: _categoriaController.text,
+      );
       final response = await http.put(
         url,
         headers: {"Content-Type": "application/json"},
-        body: jsonEncode({
-          'nome': _nomeController.text,
-          'categoria': _categoriaController.text,
-        }),
+        body: jsonEncode(cliente.toJson()),
       );
       final data = jsonDecode(response.body);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(data['message']),
-      ));
-      _get();
+      _showMessage(data['message']);
+      _getClientes();
     } catch (error) {
-      print('Erro ao executar solicitação PUT: $error');
+      _showMessage('Erro ao executar solicitação PUT: $error');
     }
   }
 
-  Future<void> _delete() async {
-    final url = Uri.parse(
-        'http://10.0.2.2/api/testeApi.php/cliente/${_idController.text}');
+  Future<void> _deleteCliente() async {
+    final url = Uri.parse('$_baseUrl/${_idController.text}');
     try {
       final response = await http.delete(url);
       final data = jsonDecode(response.body);
-      ScaffoldMessenger.of(context).showSnackBar(SnackBar(
-        content: Text(data['message']),
-      ));
-      _get();
+      _showMessage(data['message']);
+      _getClientes();
     } catch (error) {
-      print('Erro ao executar solicitação DELETE: $error');
+      _showMessage('Erro ao executar solicitação DELETE: $error');
     }
   }
 
-  void _selectRow(dynamic item) {
+  void _selectCliente(Cliente cliente) {
     setState(() {
-      _idController.text = item['id'].toString();
-      _nomeController.text = item['nome'];
-      _categoriaController.text = item['categoria'];
+      _idController.text = cliente.id.toString();
+      _nomeController.text = cliente.nome;
+      _categoriaController.text = cliente.categoria;
     });
+  }
+
+  void _showMessage(String message) {
+    ScaffoldMessenger.of(context).showSnackBar(SnackBar(
+      content: Text(message),
+    ));
   }
 
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-        appBar: AppBar(
-          title: Text(widget.title),
+      appBar: AppBar(
+        title: Text(widget.title),
+      ),
+      body: Padding(
+        padding: EdgeInsets.all(16.0),
+        child: Column(
+          children: <Widget>[
+            TextField(
+              controller: _idController,
+              decoration: InputDecoration(labelText: 'Id'),
+              readOnly: true,
+            ),
+            TextField(
+              controller: _nomeController,
+              decoration: InputDecoration(labelText: 'Nome'),
+            ),
+            TextField(
+              controller: _categoriaController,
+              decoration: InputDecoration(labelText: 'Categoria'),
+            ),
+            SizedBox(height: 16.0),
+            Row(
+              children: [
+                ElevatedButton(
+                    onPressed: _getClientes, child: Text('Atualizar')),
+                SizedBox(width: 8),
+                ElevatedButton(onPressed: _createCliente, child: Text('Criar')),
+                SizedBox(width: 8),
+                ElevatedButton(
+                    onPressed: _updateCliente, child: Text('Alterar')),
+                SizedBox(width: 8),
+                ElevatedButton(
+                    onPressed: _deleteCliente, child: Text('Excluir')),
+              ],
+            ),
+            SizedBox(height: 16.0),
+            Expanded(
+              child: _clientes.isNotEmpty
+                  ? ListView.builder(
+                      itemCount: _clientes.length,
+                      itemBuilder: (context, index) {
+                        final cliente = _clientes[index];
+                        return ListTile(
+                          title: Text(cliente.nome),
+                          subtitle: Text(cliente.categoria),
+                          onTap: () => _selectCliente(cliente),
+                        );
+                      },
+                    )
+                  : Center(child: Text('Nenhum dado disponível')),
+            ),
+          ],
         ),
-        body: SingleChildScrollView(
-            child: Padding(
-                padding: EdgeInsets.all(16.0),
-                child: Column(children: <Widget>[
-                  TextField(
-                    controller: _idController,
-                    decoration: InputDecoration(labelText: 'Id'),
-                    readOnly: true,
-                  ),
-                  TextField(
-                    controller: _nomeController,
-                    decoration: InputDecoration(labelText: 'Nome'),
-                  ),
-                  TextField(
-                    controller: _categoriaController,
-                    decoration: InputDecoration(labelText: 'Categoria'),
-                  ),
-                  SizedBox(height: 16.0),
-                  Row(
-                    children: [
-                      ElevatedButton(onPressed: _get, child: Text('Selecionar')),
-                      SizedBox(width: 8),
-                      ElevatedButton(onPressed: _post, child: Text('Criar')),
-                      SizedBox(width: 8),
-                      ElevatedButton(onPressed: _put, child: Text('Atualizar')),
-                      SizedBox(width: 8),
-                      ElevatedButton(onPressed: _delete, child: Text('Delete')),
-                    ],
-                  ),
-                  SizedBox(height: 16.0),
-                  _data.isNotEmpty
-                      ? ListView.builder(
-                          shrinkWrap: true,
-                          itemCount: _data.length,
-                          itemBuilder: (context, index) {
-                            final item = _data[index];
-                            return ListTile(
-                              title: Text(item['nome']),
-                              subtitle: Text(item['categoria']),
-                              onTap: () => _selectRow(item),
-                            );
-                          },
-                        )
-                      : Center(child: Text('Nenhum dado disponível')),
-                ]))));
+      ),
+    );
   }
 }
